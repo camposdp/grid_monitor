@@ -1,71 +1,53 @@
+import serial
+import json
 from flask import Flask, render_template, jsonify
-import random
 import time
-from datetime import datetime
 
 app = Flask(__name__)
 
-# Inicializando o status e histórico das 5 linhas
+# Configurando a porta Serial (modifique conforme a porta correta e o baudrate do ESP32)
+ser = serial.Serial('COM3', 9600)  # Para Windows use COM3, COM4, etc. Para Linux use '/dev/ttyUSB0', etc.
+
+# Inicializando o status das linhas
 status_linhas = {
-    'linha_1': 'desconhecida',
-    'linha_2': 'desconhecida',
-    'linha_3': 'desconhecida',
-    'linha_4': 'desconhecida',
-    'linha_5': 'desconhecida'
+    'linha1': 'desconhecida',
+    'linha2': 'desconhecida',
+    'linha3': 'desconhecida',
+    'linha4': 'desconhecida'
 }
 
-# Inicializando o histórico de cada linha
-historico_linhas = {
-    'linha_1': [],
-    'linha_2': [],
-    'linha_3': [],
-    'linha_4': [],
-    'linha_5': []
-}
-
-# Função que simula a leitura de dados da Serial
-def simular_dados_serial():
-    time.sleep(1)
-    
-    linha_1_status = random.choice(['ligada', 'desligada'])
-    linha_2_status = random.choice(['ligada', 'desligada'])
-    linha_3_status = random.choice(['ligada', 'desligada'])
-    linha_4_status = random.choice(['ligada', 'desligada'])
-    linha_5_status = random.choice(['ligada', 'desligada'])
-    
-    linha_serial = f"linha_1:{linha_1_status},linha_2:{linha_2_status},linha_3:{linha_3_status},linha_4:{linha_4_status},linha_5:{linha_5_status}"
-    return linha_serial
+def receber_dados_serial():
+    """Função para ler dados via Serial do ESP32 e retornar como um dicionário."""
+    if ser.in_waiting > 0:  # Verifica se há dados disponíveis na Serial
+        dados = ser.readline().decode('utf-8').strip()  # Lê e decodifica a linha
+        try:
+            # Converte a string JSON recebida via Serial para um dicionário Python
+            status = json.loads(dados)
+            return status
+        except json.JSONDecodeError:
+            print("Erro ao decodificar JSON:", dados)
+            return None
+    return None
 
 def atualizar_status_linhas():
-    linha_serial = simular_dados_serial()
-    
-    dados = linha_serial.split(',')
-    for dado in dados:
-        linha, status = dado.split(':')
-        if status_linhas[linha] != status:
-            # Atualiza o status e registra o histórico
-            status_linhas[linha] = status
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            historico_linhas[linha].append(f"{status} às {timestamp}")
+    """Atualiza o status das linhas com base nos dados recebidos via Serial."""
+    status = receber_dados_serial()
+    if status:
+        for linha, estado in status.items():
+            if estado == 1:
+                status_linhas[linha] = 'ligada'
+            elif estado == 0:
+                status_linhas[linha] = 'desligada'
 
-# Página principal
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Endpoint para fornecer o status das linhas em JSON
 @app.route('/status_linhas', methods=['GET'])
 def status_linhas_json():
+    # Atualiza o status das linhas lendo os dados da Serial
     atualizar_status_linhas()
     return jsonify(status_linhas)
-
-# Endpoint para fornecer o histórico de uma linha específica
-@app.route('/historico/<linha>', methods=['GET'])
-def historico_linha(linha):
-    if linha in historico_linhas:
-        return jsonify(historico_linhas[linha])
-    else:
-        return jsonify({'error': 'Linha não encontrada'}), 404
 
 if __name__ == '__main__':
     app.run(debug=True)
