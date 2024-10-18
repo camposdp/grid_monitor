@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status das Linhas de Transmissão</title>
+    <style>
+        .status-ligada {
+            color: green;
+        }
+        .status-desligada {
+            color: red;
+        }
+
+        /* Estilo da seção de histórico */
+        #historico {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            max-width: 500px;
+        }
+    </style>
+    <script>
+        // Função que faz requisição ao servidor para obter o status das linhas
+        function atualizarStatusLinhas() {
+            fetch('/status_linhas')
+            .then(response => response.json())
+            .then(data => {
+                atualizarLinha('linha_1_status', data.linha_1);
+                atualizarLinha('linha_2_status', data.linha_2);
+                atualizarLinha('linha_3_status', data.linha_3);
+                atualizarLinha('linha_4_status', data.linha_4);
+                atualizarLinha('linha_5_status', data.linha_5);
+            })
+            .catch(error => console.error('Erro ao atualizar status:', error));
+        }
+
+        function atualizarLinha(id, status) {
+            const linhaElement = document.getElementById(id);
+            linhaElement.innerText = status;
+
+            const iconElement = document.getElementById(id + '_icon');
+            if (status === 'ligada') {
+                iconElement.innerHTML = '🟢';
+                linhaElement.className = 'status-ligada';
+            } else {
+                iconElement.innerHTML = '🔴';
+                linhaElement.className = 'status-desligada';
+            }
+        }
+
+        // Função para carregar e exibir o histórico de uma linha
+        function carregarHistorico(linha) {
+            const historicoDiv = document.getElementById('historico');
+            historicoDiv.innerHTML = 'Carregando histórico...';
+
+            // Fazer a requisição AJAX para obter o histórico da linha
+            fetch(`/historico/${linha}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erro na requisição: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                historicoDiv.innerHTML = `<h2>Histórico da ${linha.replace('_', ' ').toUpperCase()}</h2>`;
+                if (data.length === 0) {
+                    historicoDiv.innerHTML += "<p>Nenhum histórico disponível.</p>";
+                } else {
+                    data.forEach(item => {
+                        const p = document.createElement('p');
+                        p.innerText = item;
+                        historicoDiv.appendChild(p);
+                    });
+                }
+            })
+            .catch(error => {
+                historicoDiv.innerHTML = `Erro ao carregar histórico: ${error.message}`;
+                console.error('Erro ao carregar histórico:', error);
+            });
+        }
+
+        setInterval(atualizarStatusLinhas, 5000);
+        window.onload = atualizarStatusLinhas;
+    </script>
+</head>
+<body>
+    <h1>Status das Linhas de Transmissão</h1>
+    <p><a href="#" onclick="carregarHistorico('linha_1')">Linha 1</a>: <span id="linha_1_status">Carregando...</span> <span id="linha_1_status_icon">⚪</span></p>
+    <p><a href="#" onclick="carregarHistorico('linha_2')">Linha 2</a>: <span id="linha_2_status">Carregando...</span> <span id="linha_2_status_icon">⚪</span></p>
+    <p><a href="#" onclick="carregarHistorico('linha_3')">Linha 3</a>: <span id="linha_3_status">Carregando...</span> <span id="linha_3_status_icon">⚪</span></p>
+    <p><a href="#" onclick="carregarHistorico('linha_4')">Linha 4</a>: <span id="linha_4_status">Carregando...</span> <span id="linha_4_status_icon">⚪</span></p>
+    <p><a href="#" onclick="carregarHistorico('linha_5')">Linha 5</a>: <span id="linha_5_status">Carregando...</span> <span id="linha_5_status_icon">⚪</span></p>
+
+    <!-- Seção fixa onde o histórico será exibido -->
+    <div id="historico">
+        <h2>Selecione uma linha para ver o histórico</h2>
+    </div>
+</body>
+</html>
